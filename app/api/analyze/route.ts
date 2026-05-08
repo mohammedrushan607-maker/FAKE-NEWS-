@@ -54,9 +54,12 @@ const MODEL = process.env.FIREWORKS_MODEL || "accounts/fireworks/models/kimi-k2p
 const FIREWORKS_CHAT_API = "https://api.fireworks.ai/inference/v1/chat/completions";
 const BRAVE_SEARCH_API = "https://api.search.brave.com/res/v1/web/search";
 const GDELT_DOC_API = "https://api.gdeltproject.org/api/v2/doc/doc";
+const DUCKDUCKGO_API = "https://api.duckduckgo.com/";
 const MAX_FETCH_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 12000;
 const USER_AGENT = "Mozilla/5.0 (compatible; VerityLab/1.0; +https://example.local)";
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 function currentDateLabel() {
   return new Intl.DateTimeFormat("en-US", {
@@ -235,7 +238,7 @@ async function webFetch(url: string): Promise<FetchedSource> {
 async function duckDuckGoSearch(query: string, count: number): Promise<SearchResult[]> {
   const params = new URLSearchParams({ q: query });
   const response = await fetch(`https://html.duckduckgo.com/html/?${params}`, {
-    headers: { "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" },
+    headers: { "user-agent": BROWSER_USER_AGENT },
     signal: AbortSignal.timeout(10000)
   });
 
@@ -259,6 +262,72 @@ async function duckDuckGoSearch(query: string, count: number): Promise<SearchRes
   }
 
   return results;
+}
+
+type DuckDuckGoTopic = {
+  FirstURL?: string;
+  Text?: string;
+  Topics?: DuckDuckGoTopic[];
+};
+
+type DuckDuckGoInstantAnswer = {
+  AbstractText?: string;
+  AbstractURL?: string;
+  Heading?: string;
+  RelatedTopics?: DuckDuckGoTopic[];
+};
+
+function flattenDuckDuckGoTopics(topics: DuckDuckGoTopic[] = []): DuckDuckGoTopic[] {
+  return topics.flatMap((topic) => [topic, ...flattenDuckDuckGoTopics(topic.Topics || [])]);
+}
+
+async function duckDuckGoInstantAnswerSearch(query: string, count: number): Promise<SearchResult[]> {
+  const params = new URLSearchParams({
+    q: query,
+    format: "json",
+    no_html: "1",
+    no_redirect: "1",
+    skip_disambig: "1"
+  });
+
+  const response = await fetch(`${DUCKDUCKGO_API}?${params}`, {
+    headers: { "user-agent": BROWSER_USER_AGENT },
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`DuckDuckGo API search failed with status ${response.status}.`);
+  }
+
+  const data = (await response.json()) as DuckDuckGoInstantAnswer;
+  const results: SearchResult[] = [];
+
+  if (data.AbstractURL && data.Heading) {
+    results.push({
+      title: htmlToText(data.Heading),
+      url: data.AbstractURL,
+      snippet: htmlToText(data.AbstractText || "DuckDuckGo instant answer result.")
+    });
+  }
+
+  for (const topic of flattenDuckDuckGoTopics(data.RelatedTopics || [])) {
+    if (!topic.FirstURL || !topic.Text) continue;
+    results.push({
+      title: htmlToText(topic.Text.split(" - ")[0] || topic.Text).slice(0, 160),
+      url: topic.FirstURL,
+      snippet: htmlToText(topic.Text)
+    });
+    if (results.length >= count) break;
+  }
+
+  const seen = new Set<string>();
+  return results
+    .filter((result) => {
+      if (!result.title || !result.url.startsWith("http") || seen.has(result.url)) return false;
+      seen.add(result.url);
+      return true;
+    })
+    .slice(0, count);
 }
 
 type BraveSearchResponse = {
@@ -364,13 +433,18 @@ async function webSearch(query: string, count: number): Promise<SearchResult[]> 
   }
 
   try {
+    const results = await duckDuckGoInstantAnswerSearch(query, count);
+    if (results.length) return results;
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : "DuckDuckGo API search failed.");
+  }
+
+  try {
     const results = await gdeltSearch(query, count);
     if (results.length) return results;
   } catch (error) {
     console.warn(error instanceof Error ? error.message : "GDELT search failed.");
   }
-
-  if (process.env.VERCEL) return [];
 
   try {
     return await duckDuckGoSearch(query, count);

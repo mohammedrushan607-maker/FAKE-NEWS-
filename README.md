@@ -36,8 +36,9 @@ Fireworks' Anthropic-compatible endpoint currently does not support Anthropic se
 Search providers:
 
 - If `BRAVE_SEARCH_API_KEY` is set, the app uses the Brave Search API.
-- Otherwise it uses the no-key GDELT DOC API for hosted deployments.
-- DuckDuckGo HTML search is kept only as a final local fallback when not running on Vercel. Hosted serverless environments commonly receive `403` responses from DuckDuckGo.
+- Otherwise it tries DuckDuckGo's no-key Instant Answer API with a browser-style `User-Agent` header.
+- If DuckDuckGo does not return usable results, it uses the no-key GDELT DOC API.
+- DuckDuckGo HTML search is kept as a final fallback and also sends a browser-style `User-Agent`. Hosted serverless environments may still receive `403` responses from DuckDuckGo HTML search.
 
 For Vercel, add these environment variables in Project Settings -> Environment Variables and redeploy:
 
@@ -46,7 +47,7 @@ FIREWORKS_API_KEY=fw-your-key-here
 FIREWORKS_MODEL=accounts/fireworks/models/kimi-k2p6
 ```
 
-`BRAVE_SEARCH_API_KEY` is optional. Without it, the hosted app uses GDELT search.
+`BRAVE_SEARCH_API_KEY` is optional. Without it, the hosted app uses DuckDuckGo/GDELT fallbacks.
 
 URL analysis is handled by fetching readable article text server-side and passing it to Kimi K2.6.
 
