@@ -146,9 +146,9 @@ export default function Home() {
   }
 
   return (
-    <main className="grain min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <section className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.02fr_0.98fr]">
-        <div className="min-h-[calc(100vh-48px)] border border-[var(--ink)] bg-[#fffaf0]/88 shadow-audit backdrop-blur-sm">
+    <main className="grain min-h-screen overflow-x-hidden px-3 py-4 sm:px-5 lg:px-6">
+      <section className="mx-auto grid w-full max-w-[1500px] gap-5 lg:grid-cols-[minmax(300px,420px)_minmax(0,1fr)]">
+        <div className="min-w-0 border border-[var(--ink)] bg-[#fffaf0]/88 shadow-audit backdrop-blur-sm lg:min-h-[calc(100vh-32px)]">
           <div className="flex items-center justify-between border-b border-[var(--ink)] px-5 py-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-[var(--oxide)]">
@@ -215,7 +215,7 @@ export default function Home() {
           </form>
         </div>
 
-        <aside className="min-h-[calc(100vh-48px)] border border-[var(--ink)] bg-[var(--midnight)] text-[#fffaf0] shadow-audit">
+        <aside className="min-w-0 border border-[var(--ink)] bg-[var(--midnight)] text-[#fffaf0] shadow-audit lg:min-h-[calc(100vh-32px)]">
           <div className="border-b border-[#fffaf0]/35 px-5 py-4">
             <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#f0c76b]">
               Analysis Desk
@@ -267,10 +267,10 @@ export default function Home() {
                         href={source.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 block rounded-md border border-[#fffaf0]/18 bg-[#202323] px-3 py-3 text-sm transition hover:bg-white/5"
+                        className="mt-3 block min-w-0 rounded-md border border-[#fffaf0]/18 bg-[#202323] px-3 py-3 text-sm transition hover:bg-white/5"
                       >
-                        <span className="block truncate text-[#f5eee1]">{source.title || source.url}</span>
-                        <span className="mt-1 block truncate text-xs text-[#aab3ad]">
+                        <span className="block break-words text-[#f5eee1]">{source.title || source.url}</span>
+                        <span className="mt-1 block break-words text-xs text-[#aab3ad]">
                           {source.ok
                             ? `Fetched from ${source.domain}`
                             : `Blocked automated fetch: ${source.error || source.status || "unknown"}`}
@@ -284,7 +284,7 @@ export default function Home() {
                       <div className="mt-3 overflow-hidden rounded-md border border-[#fffaf0]/18 bg-[#202323]">
                         <div className="flex items-center justify-between border-b border-[#fffaf0]/10 px-3 py-2 text-xs text-[#aab3ad]">
                           <span>{group.results.length} results</span>
-                          <span>{group.results[0] ? getDomain(group.results[0].url) : "web"}</span>
+                          <span className="min-w-0 truncate">{group.results[0] ? getDomain(group.results[0].url) : "web"}</span>
                         </div>
                         <div className="max-h-44 overflow-y-auto">
                           {group.results.slice(0, 6).map((item) => (
@@ -293,9 +293,9 @@ export default function Home() {
                               href={item.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="grid grid-cols-[1fr_140px] gap-3 px-3 py-2 text-sm transition hover:bg-white/5"
+                              className="grid min-w-0 grid-cols-[minmax(0,1fr)_120px] gap-3 px-3 py-2 text-sm transition hover:bg-white/5"
                             >
-                              <span className="truncate text-[#f5eee1]">{item.title}</span>
+                              <span className="min-w-0 truncate text-[#f5eee1]">{item.title}</span>
                               <span className="truncate text-right text-[#aab3ad]">{getDomain(item.url)}</span>
                             </a>
                           ))}
@@ -333,7 +333,7 @@ export default function Home() {
                   <p className="font-display text-2xl font-black leading-snug text-[#fffaf0]">
                     {directAnswer(result, text || url)}
                   </p>
-                  <p className="text-base leading-7 text-[#f5eee1]">{result.summary}</p>
+                  <p className="break-words text-base leading-7 text-[#f5eee1]">{result.summary}</p>
                 </div>
 
                 {result.sources?.length > 0 && (
@@ -353,8 +353,8 @@ export default function Home() {
                           <span className="mb-1 inline-block text-xs font-black uppercase tracking-[0.14em] text-[#f0c76b]">
                             {source.supports ? "Supports" : "Contradicts"}
                           </span>
-                          <span className="block font-bold">{source.title}</span>
-                          <span className="block truncate text-xs text-[#ddd3bd]">{source.url}</span>
+                          <span className="block break-words font-bold">{source.title}</span>
+                          <span className="block break-all text-xs text-[#ddd3bd]">{source.url}</span>
                         </a>
                       ))}
                     </div>
