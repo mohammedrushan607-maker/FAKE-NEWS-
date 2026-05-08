@@ -55,6 +55,7 @@ const FIREWORKS_CHAT_API = "https://api.fireworks.ai/inference/v1/chat/completio
 const BRAVE_SEARCH_API = "https://api.search.brave.com/res/v1/web/search";
 const GDELT_DOC_API = "https://api.gdeltproject.org/api/v2/doc/doc";
 const DUCKDUCKGO_API = "https://api.duckduckgo.com/";
+const GOOGLE_NEWS_RSS = "https://news.google.com/rss/search";
 const MAX_FETCH_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 12000;
 const USER_AGENT = "Mozilla/5.0 (compatible; VerityLab/1.0; +https://example.local)";
@@ -101,6 +102,14 @@ function htmlToText(html: string) {
     .replace(/[ \t]+/g, " ")
     .replace(/\n\s*\n\s*\n/g, "\n\n")
     .trim();
+}
+
+function xmlToText(value: string) {
+  return htmlToText(
+    value
+      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+      .replace(/<[^>]+>/g, " ")
+  );
 }
 
 function extractTitle(html: string) {
@@ -423,6 +432,37 @@ async function gdeltSearch(query: string, count: number): Promise<SearchResult[]
     .slice(0, count);
 }
 
+async function googleNewsSearch(query: string, count: number): Promise<SearchResult[]> {
+  const params = new URLSearchParams({
+    q: query,
+    hl: "en-US",
+    gl: "US",
+    ceid: "US:en"
+  });
+
+  const response = await fetch(`${GOOGLE_NEWS_RSS}?${params}`, {
+    headers: { "user-agent": BROWSER_USER_AGENT },
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google News RSS search failed with status ${response.status}.`);
+  }
+
+  const xml = await response.text();
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
+  return items
+    .map((item) => {
+      const raw = item[1];
+      const title = xmlToText(raw.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || "");
+      const url = decodeHtml(raw.match(/<link>([\s\S]*?)<\/link>/i)?.[1] || "").trim();
+      const snippet = xmlToText(raw.match(/<description>([\s\S]*?)<\/description>/i)?.[1] || "");
+      return { title, url, snippet };
+    })
+    .filter((result) => result.title && result.url.startsWith("http"))
+    .slice(0, count);
+}
+
 async function webSearch(query: string, count: number): Promise<SearchResult[]> {
   if (process.env.BRAVE_SEARCH_API_KEY) {
     try {
@@ -437,6 +477,13 @@ async function webSearch(query: string, count: number): Promise<SearchResult[]> 
     if (results.length) return results;
   } catch (error) {
     console.warn(error instanceof Error ? error.message : "DuckDuckGo API search failed.");
+  }
+
+  try {
+    const results = await googleNewsSearch(query, count);
+    if (results.length) return results;
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : "Google News RSS search failed.");
   }
 
   try {
@@ -467,13 +514,53 @@ function decodeDuckDuckGoUrl(url: string) {
 
 function buildSearchQueries(input: string) {
   const base = input.replace(/\s+/g, " ").trim().slice(0, 180);
+  const compact = buildKeywordQuery(base);
   const queries = [
+    compact,
     base,
-    `${base} fact check`,
-    `${base} Reuters AP BBC`,
-    `${base} Snopes PolitiFact FactCheck.org`
+    `${compact || base} fact check`,
+    `${compact || base} Reuters AP BBC`,
+    `${compact || base} Snopes PolitiFact FactCheck.org`
   ];
   return [...new Set(queries.map((query) => query.trim()).filter(Boolean))].slice(0, 4);
+}
+
+function buildKeywordQuery(input: string) {
+  const stopWords = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "claim",
+    "claims",
+    "confirm",
+    "confirms",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "says",
+    "the",
+    "this",
+    "to",
+    "will",
+    "with"
+  ]);
+
+  return input
+    .replace(/['"“”‘’]/g, "")
+    .replace(/[^a-z0-9.\s-]/gi, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length > 2 || /\d/.test(word))
+    .filter((word) => !stopWords.has(word.toLowerCase()))
+    .slice(0, 10)
+    .join(" ");
 }
 
 function sourceScore(result: SearchResult) {
