@@ -147,7 +147,7 @@ export default function Home() {
 
   return (
     <main className="grain min-h-screen overflow-x-hidden px-3 py-4 sm:px-5 lg:px-6">
-      <section className="mx-auto grid w-full max-w-[1500px] gap-5 lg:grid-cols-[minmax(300px,420px)_minmax(0,1fr)]">
+      <section className="mx-auto grid w-full max-w-[1500px] gap-5 lg:grid-cols-2">
         <div className="min-w-0 border border-[var(--ink)] bg-[#fffaf0]/88 shadow-audit backdrop-blur-sm lg:min-h-[calc(100vh-32px)]">
           <div className="flex items-center justify-between border-b border-[var(--ink)] px-5 py-4">
             <div>

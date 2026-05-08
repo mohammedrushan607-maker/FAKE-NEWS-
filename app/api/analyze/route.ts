@@ -663,7 +663,37 @@ function extractJson(raw: string) {
   return clean.slice(first, last + 1);
 }
 
-async function askKimiForVerdict(apiKey: string, prompt: string) {
+function buildRepairPrompt(claim: string, searchEvidence: SearchEvidence[], rawText: string) {
+  const sources = searchEvidence
+    .flatMap((item) => item.results)
+    .slice(0, 8)
+    .map((source, index) => `${index + 1}. ${source.title}\nURL: ${source.url}\nSnippet: ${source.snippet || "No snippet."}`)
+    .join("\n\n");
+
+  return `Convert the analysis below into ONLY one valid JSON object. Do not add markdown or prose outside JSON.
+
+Required JSON shape:
+{
+  "verdict": "CREDIBLE" | "SUSPICIOUS" | "LIKELY FAKE",
+  "confidence": <number 0-100>,
+  "summary": "<direct one paragraph answer using the evidence>",
+  "sources": [{ "title": "...", "url": "...", "supports": true | false }],
+  "signals": [],
+  "red_flags": [],
+  "positive_indicators": []
+}
+
+Claim:
+${claim}
+
+Available sources:
+${sources || "No search results."}
+
+Analysis to convert:
+${rawText || "No usable analysis text."}`;
+}
+
+async function askKimiRaw(apiKey: string, prompt: string) {
   const response = await fetch(FIREWORKS_CHAT_API, {
     method: "POST",
     headers: {
@@ -685,8 +715,18 @@ async function askKimiForVerdict(apiKey: string, prompt: string) {
   }
 
   const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const text = data.choices?.[0]?.message?.content || "";
-  return JSON.parse(extractJson(text));
+  return data.choices?.[0]?.message?.content || "";
+}
+
+async function askKimiForVerdict(apiKey: string, prompt: string, repairPrompt: (rawText: string) => string) {
+  const text = await askKimiRaw(apiKey, prompt);
+
+  try {
+    return JSON.parse(extractJson(text));
+  } catch {
+    const repaired = await askKimiRaw(apiKey, repairPrompt(text));
+    return JSON.parse(extractJson(repaired));
+  }
 }
 
 function normalizeVerdict(value: unknown, evidence: SearchEvidence[]): VerdictResult {
@@ -745,8 +785,9 @@ function fallbackVerdictFromEvidence(evidence: SearchEvidence[]): VerdictResult 
   return {
     verdict: "SUSPICIOUS",
     confidence: sources.length ? 55 : 35,
-    summary:
-      "The app searched the web and fetched source pages, but the model could not produce a valid structured verdict. Treat the claim as unverified and inspect the listed sources.",
+    summary: sources.length
+      ? `The claim remains unverified from the available search results. The app found ${sources.length} potentially relevant source${sources.length === 1 ? "" : "s"}, but automated synthesis failed, so inspect the cited sources before treating the claim as true or false.`
+      : "The claim remains unverified because the app could not find usable search results or produce a structured verdict. Try a more specific claim or add an article URL.",
     sources,
     signals: [
       { name: "Emotional Language", score: 5, note: "Manual review needed." },
@@ -850,9 +891,14 @@ async function streamAnalysis(controller: ReadableStreamDefaultController, body:
 
   let result: VerdictResult;
   try {
-    const rawVerdict = await askKimiForVerdict(apiKey, buildVerdictPrompt(claim, searchEvidence, fetchedSources));
+    const rawVerdict = await askKimiForVerdict(
+      apiKey,
+      buildVerdictPrompt(claim, searchEvidence, fetchedSources),
+      (rawText) => buildRepairPrompt(claim, searchEvidence, rawText)
+    );
     result = normalizeVerdict(rawVerdict, searchEvidence);
-  } catch {
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : "Verdict synthesis failed.");
     result = fallbackVerdictFromEvidence(searchEvidence);
   }
 
