@@ -52,6 +52,8 @@ type VerdictResult = {
 
 const MODEL = process.env.FIREWORKS_MODEL || "accounts/fireworks/models/kimi-k2p6";
 const FIREWORKS_CHAT_API = "https://api.fireworks.ai/inference/v1/chat/completions";
+const BRAVE_SEARCH_API = "https://api.search.brave.com/res/v1/web/search";
+const GDELT_DOC_API = "https://api.gdeltproject.org/api/v2/doc/doc";
 const MAX_FETCH_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 12000;
 const USER_AGENT = "Mozilla/5.0 (compatible; VerityLab/1.0; +https://example.local)";
@@ -257,6 +259,125 @@ async function duckDuckGoSearch(query: string, count: number): Promise<SearchRes
   }
 
   return results;
+}
+
+type BraveSearchResponse = {
+  web?: {
+    results?: Array<{
+      title?: string;
+      url?: string;
+      description?: string;
+      extra_snippets?: string[];
+    }>;
+  };
+};
+
+type GdeltDocResponse = {
+  articles?: Array<{
+    title?: string;
+    url?: string;
+    domain?: string;
+    sourceCountry?: string;
+    seendate?: string;
+  }>;
+};
+
+async function braveSearch(query: string, count: number): Promise<SearchResult[]> {
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+  if (!apiKey) return [];
+
+  const params = new URLSearchParams({
+    q: query,
+    count: String(Math.min(Math.max(count, 1), 20)),
+    country: "us",
+    search_lang: "en",
+    safesearch: "moderate",
+    spellcheck: "1"
+  });
+
+  const response = await fetch(`${BRAVE_SEARCH_API}?${params}`, {
+    headers: {
+      "accept": "application/json",
+      "accept-encoding": "gzip",
+      "x-subscription-token": apiKey
+    },
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Brave Search failed with status ${response.status}.${detail ? ` ${detail.slice(0, 180)}` : ""}`);
+  }
+
+  const data = (await response.json()) as BraveSearchResponse;
+  return (data.web?.results || [])
+    .map((result) => ({
+      title: htmlToText(result.title || ""),
+      url: result.url || "",
+      snippet: htmlToText([result.description, ...(result.extra_snippets || [])].filter(Boolean).join(" "))
+    }))
+    .filter((result) => result.title && result.url.startsWith("http"))
+    .slice(0, count);
+}
+
+async function gdeltSearch(query: string, count: number): Promise<SearchResult[]> {
+  const params = new URLSearchParams({
+    query,
+    mode: "artlist",
+    format: "json",
+    maxrecords: String(Math.min(Math.max(count, 1), 50)),
+    sort: "hybridrel"
+  });
+
+  const response = await fetch(`${GDELT_DOC_API}?${params}`, {
+    headers: { "accept": "application/json" },
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`GDELT search failed with status ${response.status}.`);
+  }
+
+  const data = (await response.json()) as GdeltDocResponse;
+  return (data.articles || [])
+    .map((article) => {
+      const domain = article.domain || (article.url ? getDomain(article.url) : "");
+      const date = article.seendate ? `Seen ${article.seendate}. ` : "";
+      const country = article.sourceCountry ? `Source country: ${article.sourceCountry}. ` : "";
+      return {
+        title: htmlToText(article.title || ""),
+        url: article.url || "",
+        snippet: `${date}${country}${domain ? `Source: ${domain}.` : ""}`.trim()
+      };
+    })
+    .filter((result) => result.title && result.url.startsWith("http"))
+    .slice(0, count);
+}
+
+async function webSearch(query: string, count: number): Promise<SearchResult[]> {
+  if (process.env.BRAVE_SEARCH_API_KEY) {
+    try {
+      return await braveSearch(query, count);
+    } catch (error) {
+      console.warn(error instanceof Error ? error.message : "Brave Search failed.");
+    }
+  }
+
+  try {
+    const results = await gdeltSearch(query, count);
+    if (results.length) return results;
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : "GDELT search failed.");
+  }
+
+  if (process.env.VERCEL) return [];
+
+  try {
+    return await duckDuckGoSearch(query, count);
+  } catch (error) {
+    console.warn(error instanceof Error ? error.message : "DuckDuckGo search failed.");
+    return [];
+  }
 }
 
 function decodeDuckDuckGoUrl(url: string) {
@@ -547,7 +668,7 @@ async function streamAnalysis(controller: ReadableStreamDefaultController, body:
   const queries = buildSearchQueries(searchSeed || claim);
   for (const query of queries) {
     send(controller, { type: "status", label: "Searching the web...", query });
-    const results = await duckDuckGoSearch(query, 6);
+    const results = await webSearch(query, 6);
     searchEvidence.push({ query, results });
     send(controller, { type: "search_results", query, results });
   }
