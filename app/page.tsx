@@ -2,12 +2,6 @@
 
 import { FormEvent, ReactNode, useMemo, useState } from "react";
 
-type Signal = {
-  name: string;
-  score: number;
-  note: string;
-};
-
 type Source = {
   title: string;
   url: string;
@@ -19,7 +13,6 @@ type Verdict = {
   confidence: number;
   summary: string;
   sources: Source[];
-  signals: Signal[];
   red_flags: string[];
   positive_indicators: string[];
 };
@@ -368,63 +361,12 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {result.signals?.map((signal) => (
-                    <div key={signal.name} className="border border-[#fffaf0]/25 bg-white/5 p-4">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-black">{signal.name}</h3>
-                        <span className="font-black text-[#f0c76b]">{signal.score}/10</span>
-                      </div>
-                      <div className="mb-3 h-2 bg-[#fffaf0]/15">
-                        <div
-                          className="h-full bg-[#f0c76b]"
-                          style={{ width: `${Math.max(0, Math.min(10, signal.score)) * 10}%` }}
-                        />
-                      </div>
-                      <p className="text-xs leading-5 text-[#ddd3bd]">{signal.note}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <ListPanel title="Red flags" items={result.red_flags} tone="red" />
-                  <ListPanel title="Positive indicators" items={result.positive_indicators} tone="green" />
-                </div>
               </div>
             )}
           </div>
         </aside>
       </section>
     </main>
-  );
-}
-
-function ListPanel({
-  title,
-  items,
-  tone
-}: {
-  title: string;
-  items: string[];
-  tone: "red" | "green";
-}) {
-  return (
-    <div className="border border-[#fffaf0]/25 bg-white/5 p-4">
-      <h3
-        className={`mb-3 text-xs font-black uppercase tracking-[0.2em] ${
-          tone === "red" ? "text-red-200" : "text-emerald-200"
-        }`}
-      >
-        {title}
-      </h3>
-      <ul className="space-y-2 text-sm leading-6 text-[#ddd3bd]">
-        {(items || []).map((item) => (
-          <li key={item} className="border-l border-[#fffaf0]/25 pl-3">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
