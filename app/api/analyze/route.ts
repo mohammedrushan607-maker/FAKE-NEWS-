@@ -553,6 +553,7 @@ function buildKeywordQuery(input: string) {
   ]);
 
   return input
+    .replace(/['’]s\b/gi, "")
     .replace(/['"“”‘’]/g, "")
     .replace(/[^a-z0-9.\s-]/gi, " ")
     .split(/\s+/)

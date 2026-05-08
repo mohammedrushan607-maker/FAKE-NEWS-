@@ -111,9 +111,11 @@ export default function Home() {
           }
 
           if (message.type === "search_results") {
+            const results = message.results || [];
+            if (!results.length) continue;
             setSearchGroups((current) => {
               if (current.some((group) => group.query === message.query)) return current;
-              return [...current, { query: message.query, results: message.results || [] }];
+              return [...current, { query: message.query, results }];
             });
           }
 
@@ -149,7 +151,7 @@ export default function Home() {
     <main className="grain min-h-screen overflow-x-hidden px-3 py-4 sm:px-5 lg:px-6">
       <section className="mx-auto grid w-full max-w-[1500px] gap-5 lg:grid-cols-2">
         <div className="min-w-0 border border-[var(--ink)] bg-[#fffaf0]/88 shadow-audit backdrop-blur-sm lg:min-h-[calc(100vh-32px)]">
-          <div className="flex items-center justify-between border-b border-[var(--ink)] px-5 py-4">
+          <div className="border-b border-[var(--ink)] px-5 py-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.26em] text-[var(--oxide)]">
                 Verity Lab
@@ -157,9 +159,6 @@ export default function Home() {
               <h1 className="font-display text-4xl font-black leading-none sm:text-6xl">
                 Fake News Detector
               </h1>
-            </div>
-            <div className="hidden h-16 w-16 place-items-center border border-[var(--ink)] bg-[var(--midnight)] text-2xl font-black text-[#fffaf0] sm:grid">
-              ?
             </div>
           </div>
 
