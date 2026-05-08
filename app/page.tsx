@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useMemo, useState } from "react";
 
 type Signal = {
   name: string;
@@ -44,12 +44,6 @@ type FetchedSource = {
   error?: string;
 };
 
-type Upload = {
-  name: string;
-  mediaType: string;
-  data: string;
-};
-
 const examples = [
   "Scientists confirm drinking lemon water cures diabetes overnight.",
   "NASA announces July 2026 asteroid flyby will pass safely outside Earth's orbit.",
@@ -63,22 +57,9 @@ const verdictTone = {
   "LIKELY FAKE": "border-red-800 bg-red-50 text-red-950"
 };
 
-function fileToBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      resolve(result.split(",")[1] || "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function Home() {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
-  const [upload, setUpload] = useState<Upload | null>(null);
   const [status, setStatus] = useState("Idle");
   const [events, setEvents] = useState<string[]>([]);
   const [searchGroups, setSearchGroups] = useState<SearchGroup[]>([]);
@@ -88,22 +69,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(
-    () => Boolean(text.trim() || url.trim() || upload) && !loading,
-    [text, url, upload, loading]
+    () => Boolean(text.trim() || url.trim()) && !loading,
+    [text, url, loading]
   );
-
-  async function onImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Upload a PNG, JPG, or other readable image file.");
-      return;
-    }
-
-    setError("");
-    const data = await fileToBase64(file);
-    setUpload({ name: file.name, mediaType: file.type, data });
-  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,8 +91,7 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           text,
-          url,
-          image: upload ? { data: upload.data, mediaType: upload.mediaType } : null
+          url
         })
       });
 
@@ -216,44 +183,17 @@ export default function Home() {
               />
             </label>
 
-            <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-              <label className="block">
-                <span className="mb-2 block text-sm font-black uppercase tracking-[0.14em]">
-                  Article URL
-                </span>
-                <input
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://news-site.example/story"
-                  className="h-12 w-full border border-[var(--ink)] bg-[#fffdf7] px-4 outline-none transition focus:shadow-[5px_5px_0_#181612]"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-black uppercase tracking-[0.14em]">
-                  Screenshot
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={onImageChange}
-                  className="block h-12 w-full cursor-pointer border border-[var(--ink)] bg-[#fffdf7] text-sm file:mr-3 file:h-full file:border-0 file:border-r file:border-[var(--ink)] file:bg-[var(--verdigris)] file:px-3 file:font-black file:text-[#fffaf0]"
-                />
-              </label>
-            </div>
-
-            {upload && (
-              <div className="flex items-center justify-between border border-[var(--rule)] bg-[#f8f1df] px-3 py-2 text-sm">
-                <span>{upload.name} selected for visible-text extraction.</span>
-                <button
-                  type="button"
-                  onClick={() => setUpload(null)}
-                  className="font-black uppercase tracking-[0.12em] text-[var(--oxide)]"
-                >
-                  Remove
-                </button>
-              </div>
-            )}
+            <label className="block">
+              <span className="mb-2 block text-sm font-black uppercase tracking-[0.14em]">
+                Article URL
+              </span>
+              <input
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://news-site.example/story"
+                className="h-12 w-full border border-[var(--ink)] bg-[#fffdf7] px-4 outline-none transition focus:shadow-[5px_5px_0_#181612]"
+              />
+            </label>
 
             <div>
               <p className="mb-2 text-sm font-black uppercase tracking-[0.14em]">
@@ -295,7 +235,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="space-y-5 p-5">
+          <div className="flex flex-col gap-5 p-5">
             {error && (
               <div className="border border-red-300 bg-red-950/60 p-4 text-sm text-red-100">
                 {error}
@@ -309,16 +249,16 @@ export default function Home() {
                     {loading ? "..." : "!"}
                   </div>
                   <p className="mx-auto max-w-sm text-sm leading-6 text-[#ddd3bd]">
-                    Submit a claim, article URL, or screenshot. The server keeps your Fireworks API key private and returns a structured JSON credibility report.
+                    Submit a claim or article URL. The server keeps your Fireworks API key private and returns a structured JSON credibility report.
                   </p>
                 </div>
               </div>
             )}
 
             {(events.length > 0 || searchGroups.length > 0 || result) && (
-              <div className="space-y-3">
-                <p className="text-sm text-[#aab3ad]">
-                  {result ? result.summary.split(".")[0] : "Checking current public sources"}
+              <div className={result ? "order-2 space-y-3" : "space-y-3"}>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-[#aab3ad]">
+                  {result ? "Search process" : "Checking current public sources"}
                 </p>
 
                 <div className="relative space-y-4 pl-8 before:absolute before:left-[10px] before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-[#fffaf0]/18">
@@ -382,27 +322,7 @@ export default function Home() {
             )}
 
             {result && (
-              <div className="space-y-5">
-                <div className="space-y-4 border-t border-[#fffaf0]/20 pt-5">
-                  <p className="font-display text-2xl font-black leading-snug text-[#fffaf0]">
-                    {directAnswer(result, text || url)}
-                  </p>
-                  <p className="text-base leading-7 text-[#f5eee1]">{result.summary}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {result.sources?.slice(0, 5).map((source) => (
-                      <a
-                        key={`${source.title}-${source.url}-chip`}
-                        href={source.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-full border border-[#fffaf0]/25 bg-white/5 px-3 py-1 text-xs text-[#f0c76b] transition hover:bg-white/10"
-                      >
-                        {source.title.split("|")[0].slice(0, 22)}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-
+              <div className="order-1 space-y-5">
                 <div className={`border p-5 ${verdictTone[result.verdict]}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -416,27 +336,11 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {result.signals?.map((signal) => (
-                    <div key={signal.name} className="border border-[#fffaf0]/25 bg-white/5 p-4">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-black">{signal.name}</h3>
-                        <span className="font-black text-[#f0c76b]">{signal.score}/10</span>
-                      </div>
-                      <div className="mb-3 h-2 bg-[#fffaf0]/15">
-                        <div
-                          className="h-full bg-[#f0c76b]"
-                          style={{ width: `${Math.max(0, Math.min(10, signal.score)) * 10}%` }}
-                        />
-                      </div>
-                      <p className="text-xs leading-5 text-[#ddd3bd]">{signal.note}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <ListPanel title="Red flags" items={result.red_flags} tone="red" />
-                  <ListPanel title="Positive indicators" items={result.positive_indicators} tone="green" />
+                <div className="space-y-3 border border-[#fffaf0]/25 bg-white/5 p-4">
+                  <p className="font-display text-2xl font-black leading-snug text-[#fffaf0]">
+                    {directAnswer(result, text || url)}
+                  </p>
+                  <p className="text-base leading-7 text-[#f5eee1]">{result.summary}</p>
                 </div>
 
                 {result.sources?.length > 0 && (
@@ -463,6 +367,29 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {result.signals?.map((signal) => (
+                    <div key={signal.name} className="border border-[#fffaf0]/25 bg-white/5 p-4">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-black">{signal.name}</h3>
+                        <span className="font-black text-[#f0c76b]">{signal.score}/10</span>
+                      </div>
+                      <div className="mb-3 h-2 bg-[#fffaf0]/15">
+                        <div
+                          className="h-full bg-[#f0c76b]"
+                          style={{ width: `${Math.max(0, Math.min(10, signal.score)) * 10}%` }}
+                        />
+                      </div>
+                      <p className="text-xs leading-5 text-[#ddd3bd]">{signal.note}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <ListPanel title="Red flags" items={result.red_flags} tone="red" />
+                  <ListPanel title="Positive indicators" items={result.positive_indicators} tone="green" />
+                </div>
               </div>
             )}
           </div>

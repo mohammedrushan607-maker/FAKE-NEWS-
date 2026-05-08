@@ -50,5 +50,3 @@ FIREWORKS_MODEL=accounts/fireworks/models/kimi-k2p6
 `BRAVE_SEARCH_API_KEY` is optional. Without it, the hosted app uses DuckDuckGo/Google News/GDELT fallbacks.
 
 URL analysis is handled by fetching readable article text server-side and passing it to Kimi K2.6.
-
-Kimi K2.6 is listed by Fireworks as a vision-capable model, so screenshot/image uploads are sent as base64 image content for visible-text extraction and analysis.
