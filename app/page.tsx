@@ -8,11 +8,20 @@ type Source = {
   supports: boolean;
 };
 
+type CredibilityOverview = {
+  headline: string;
+  short_answer: string;
+  confidence_reason: string;
+  key_points: string[];
+  caveat: string;
+};
+
 type Verdict = {
   verdict: "CREDIBLE" | "SUSPICIOUS" | "LIKELY FAKE";
   confidence: number;
   summary: string;
   sources: Source[];
+  overview?: CredibilityOverview;
   red_flags: string[];
   positive_indicators: string[];
 };
@@ -36,6 +45,7 @@ type FetchedSource = {
   status?: number;
   error?: string;
 };
+
 
 const examples = [
   "Scientists confirm drinking lemon water cures diabetes overnight.",
@@ -254,12 +264,12 @@ export default function Home() {
                 </p>
 
                 <div className="relative space-y-4 pl-8 before:absolute before:left-[10px] before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-[#fffaf0]/18">
-                  <TimelineItem icon="◷" title="Let me search for current information about this." />
+                  <TimelineItem icon=">" title="Let me search for current information about this." />
 
                   {fetchedSources.map((source) => (
                     <TimelineItem
                       key={source.url}
-                      icon="◎"
+                      icon="o"
                       title={`Fetched submitted source: ${source.title || source.domain}`}
                     >
                       <a
@@ -279,7 +289,7 @@ export default function Home() {
                   ))}
 
                   {searchGroups.map((group) => (
-                    <TimelineItem key={group.query} icon="◎" title={group.query}>
+                    <TimelineItem key={group.query} icon="o" title={group.query}>
                       <div className="mt-3 overflow-hidden rounded-md border border-[#fffaf0]/18 bg-[#202323]">
                         <div className="flex items-center justify-between border-b border-[#fffaf0]/10 px-3 py-2 text-xs text-[#aab3ad]">
                           <span>{group.results.length} results</span>
@@ -305,8 +315,8 @@ export default function Home() {
 
                   {result && (
                     <>
-                      <TimelineItem icon="◷" title={directAnswer(result, text || url)} />
-                      <TimelineItem icon="✓" title="Done" />
+                      <TimelineItem icon=">" title={directAnswer(result, text || url)} />
+                      <TimelineItem icon="OK" title="Done" />
                     </>
                   )}
                 </div>
@@ -315,6 +325,52 @@ export default function Home() {
 
             {result && (
               <div className="order-1 space-y-5">
+                {result.overview && (
+                  <section className="border border-[#f0c76b]/45 bg-[#fffaf0] p-5 text-[var(--ink)] shadow-[8px_8px_0_rgba(240,199,107,0.35)]">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--oxide)]">
+                          Credibility overview
+                        </p>
+                        <h3 className="mt-1 font-display text-3xl font-black leading-tight">
+                          {result.overview.headline}
+                        </h3>
+                      </div>
+                      <div className="shrink-0 border border-[var(--ink)] px-3 py-2 text-left sm:text-right">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                          Confidence
+                        </p>
+                        <p className="text-2xl font-black">{result.confidence}%</p>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 break-words text-lg font-bold leading-7">
+                      {result.overview.short_answer}
+                    </p>
+                    <p className="mt-2 break-words text-sm leading-6 text-[var(--muted)]">
+                      {result.overview.confidence_reason}
+                    </p>
+
+                    {result.overview.key_points.length > 0 && (
+                      <ul className="mt-4 grid gap-2">
+                        {result.overview.key_points.slice(0, 3).map((point, index) => (
+                          <li
+                            key={`${index}-${point}`}
+                            className="flex gap-2 border border-[var(--rule)] bg-white/55 px-3 py-2 text-sm leading-5"
+                          >
+                            <span className="mt-[2px] font-black text-[var(--oxide)]">-</span>
+                            <span className="min-w-0 break-words">{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <p className="mt-4 border-t border-[var(--rule)] pt-3 text-xs font-semibold leading-5 text-[var(--muted)]">
+                      {result.overview.caveat}
+                    </p>
+                  </section>
+                )}
+
                 <div className={`border p-5 ${verdictTone[result.verdict]}`}>
                   <div className="flex items-start justify-between gap-4">
                     <div>

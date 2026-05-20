@@ -18,6 +18,7 @@ Create `.env.local`:
 FIREWORKS_API_KEY=fw-your-key-here
 FIREWORKS_MODEL=accounts/fireworks/models/kimi-k2p6
 BRAVE_SEARCH_API_KEY=optional-brave-search-key
+GOOGLE_AI_OVERVIEW_SCRAPE=0
 ```
 
 Install and run:
@@ -50,3 +51,10 @@ FIREWORKS_MODEL=accounts/fireworks/models/kimi-k2p6
 `BRAVE_SEARCH_API_KEY` is optional. Without it, the hosted app uses DuckDuckGo/Google News/GDELT fallbacks.
 
 URL analysis is handled by fetching readable article text server-side and passing it to Kimi K2.6.
+
+Optional Google AI Overview scraping:
+
+- Set `GOOGLE_AI_OVERVIEW_SCRAPE=1` to let the backend try a Playwright browser search on Google and extract the AI Overview text when Google shows one.
+- This is best-effort only. Google may omit AI Overview, vary it by location/account, or block automated browser traffic.
+- The scraper does not bypass login, CAPTCHA, or anti-bot protections. If scraping fails, the app falls back to its normal search and source-verification pipeline.
+- Install the browser runtime with `npx playwright install chromium` after `npm install`.
